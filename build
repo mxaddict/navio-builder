@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+MAIN_DIR="/navio"
+LOCKFILE="$MAIN_DIR/.lock"
+BUILDS_DIR="$MAIN_DIR/builds"
+REPO_DIR="$MAIN_DIR/navio-core"
+HASH_FILE="$MAIN_DIR/hash.txt"
+
+if [ -e "$LOCKFILE" ]; then
+    exit 1
+fi
+
+touch "$LOCKFILE"
+echo "" > $BUILD_DIR/build.log.txt
+
+cleanup() {
+    rm -f "$LOCKFILE"
+}
+trap cleanup EXIT
+
+cd $REPO_DIR
+git fetch --all
+git checkout -f origin/master
+
+CURRENT_HASH=$(git rev-parse --short=12  HEAD)
+
+LAST_HASH=$(cat $HASH_FILE)
+
+if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
+    #echo $CURRENT_HASH > $HASH_FILE
+
+    echo "Building: $CURRENT_HASH"
+    pushd $REPO_DIR
+    HOSTS="${HOSTS:-x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin}"   
+
+    for HOST in HOSTS; do
+        echo "Processing: $HOST"
+        HOSTS="$HOST" ./contrib/guix/guix-build
+        FILES="$(guix-build-$CURRENT_HASH/output/**/*.{zip,tar.gz})"
+        for FILE in FILES; do
+            BASENAME="$(basename $FILE)"
+            DESTFILE="$BUILD_DIR/$BASENAME"
+            cp $FILE $DESTFILE
+            ln -s "$BUILD_DIR/${BASENAME/$CURRENT_HASH/latest}" $DESTFILE
+        done
+        #rm -rf guix-build-$CURRENT_HASH
+    done
+    popd
+fi
