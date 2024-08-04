@@ -11,7 +11,7 @@ if [ -e "$LOCKFILE" ]; then
 fi
 
 touch "$LOCKFILE"
-echo "" > $BUILD_DIR/build.log.txt
+echo "" > $BUILDS_DIR/build.log.txt
 
 cleanup() {
     rm -f "$LOCKFILE"
@@ -41,10 +41,10 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         FILES="$(ls guix-build-$CURRENT_HASH/output/**/*.{zip,tar.gz})"
         for FILE in $FILES; do
             BASENAME="$(basename $FILE)"
-            DESTFILE="$BUILD_DIR/$BASENAME"
+            DESTFILE="$BUILDS_DIR/$BASENAME"
             echo "cp $FILE $DESTFILE"
-            #ln -s "$BUILD_DIR/${BASENAME/$CURRENT_HASH/latest}" $DESTFILE
-            echo "ln -s $BUILD_DIR/${BASENAME/$CURRENT_HASH/latest} $DESTFILE"
+            #ln -s "$BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}" $DESTFILE
+            echo "ln -s $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest} $DESTFILE"
         done
         # rm -rf guix-build-$CURRENT_HASH
     done
