@@ -43,7 +43,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
             BASENAME="$(basename $FILE)"
             DESTFILE="$BUILDS_DIR/$BASENAME"
             cp $FILE $DESTFILE
-            ln -s $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest} $DESTFILE
+            ln -s $DESTFILE $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}
         done
         # rm -rf guix-build-$CURRENT_HASH
     done
