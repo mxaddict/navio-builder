@@ -38,7 +38,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         echo "Processing: $HOST"
         #HOSTS="$HOST" ./contrib/guix/guix-clean
         #HOSTS="$HOST" ./contrib/guix/guix-build
-        FILES="$(ls guix-build-$CURRENT_HASH/output/**/*.{zip,tar.gz})"
+        FILES="$(ls guix-build-$CURRENT_HASH/output/$HOST/*.{zip,tar.gz})"
         for FILE in $FILES; do
             BASENAME="$(basename $FILE)"
             DESTFILE="$BUILDS_DIR/$BASENAME"
