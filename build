@@ -31,10 +31,11 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
 
     echo "Building: $CURRENT_HASH"
     pushd $REPO_DIR
-    export HOSTS="${HOSTS:-x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin}"   
+    HOSTS_="${HOSTS:-x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin}"   
 
-    for HOST in $HOSTS; do
+    for HOST in $HOSTS_; do
         echo "Processing: $HOST"
+        HOSTS="$HOST" ./contrib/guix/guix-clean
         HOSTS="$HOST" ./contrib/guix/guix-build
         FILES="$(guix-build-$CURRENT_HASH/output/**/*.{zip,tar.gz})"
         for FILE in FILES; do
@@ -43,7 +44,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
             cp $FILE $DESTFILE
             ln -s "$BUILD_DIR/${BASENAME/$CURRENT_HASH/latest}" $DESTFILE
         done
-        #rm -rf guix-build-$CURRENT_HASH
+        rm -rf guix-build-$CURRENT_HASH
     done
     popd
 fi
