@@ -42,9 +42,8 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         for FILE in $FILES; do
             BASENAME="$(basename $FILE)"
             DESTFILE="$BUILDS_DIR/$BASENAME"
-            echo "cp $FILE $DESTFILE"
-            #ln -s "$BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}" $DESTFILE
-            echo "ln -s $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest} $DESTFILE"
+            cp $FILE $DESTFILE
+            ln -s $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest} $DESTFILE
         done
         # rm -rf guix-build-$CURRENT_HASH
     done
