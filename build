@@ -31,7 +31,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
 
     echo "Building: $CURRENT_HASH"
     pushd $REPO_DIR
-    HOSTS_="${HOSTS:-x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin}"   
+    export HOSTS_="${HOSTS:-x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin}"   
 
     for HOST in $HOSTS_; do
         echo "Processing: $HOST"
