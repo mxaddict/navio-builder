@@ -26,17 +26,18 @@ CURRENT_HASH=$(git rev-parse --short=12  HEAD)
 
 LAST_HASH=$(cat $HASH_FILE)
 
+HOSTS_ALL="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin"
+
 if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
     #echo $CURRENT_HASH > $HASH_FILE
 
     echo "Building: $CURRENT_HASH"
     pushd $REPO_DIR
-    export HOSTS_="${HOSTS:-x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin}"   
 
-    for HOST in $HOSTS_; do
+    for HOST in $HOSTS_ALL; do
         echo "Processing: $HOST"
-        # HOSTS="$HOST" ./contrib/guix/guix-clean
-        # HOSTS="$HOST" ./contrib/guix/guix-build
+        #HOSTS="$HOST" ./contrib/guix/guix-clean
+        HOSTS="$HOST" ./contrib/guix/guix-build
         FILES="$(ls guix-build-$CURRENT_HASH/output/**/*.{zip,tar.gz})"
         for FILE in $FILES; do
             BASENAME="$(basename $FILE)"
