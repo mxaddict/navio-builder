@@ -45,6 +45,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
             cp $FILE $DESTFILE
             rm $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}
             ln -s $DESTFILE $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}
+            find $BUILDS_DIR -mtime +2 -type f -delete
         done
         HOSTS="$HOST" ./contrib/guix/guix-clean
     done
