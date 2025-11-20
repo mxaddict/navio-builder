@@ -86,7 +86,6 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         fi
 
         # 2) All artifacts named with 'latest'
-        latest_files( *latest*.tar.gz *latest*.zip )
         latest_files=( *latest*.tar.gz *latest*.zip )
         if ((${#latest_files[@]})); then
             LATEST_SHA_FILE="SHA256SUMS-latest"
