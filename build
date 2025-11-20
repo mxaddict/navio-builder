@@ -5,6 +5,12 @@ LOCKFILE="$MAIN_DIR/.lock"
 BUILDS_DIR="$MAIN_DIR/builds"
 REPO_DIR="$MAIN_DIR/navio-core"
 HASH_FILE="$MAIN_DIR/hash.txt"
+GPG_KEY="4DC1A6D4CB76395724FB97DBA05B6DF4513EA050"
+
+if [ -z "$GPG_KEY" ]; then
+    echo "ERROR: GPG_KEY is not set. Export GPG_KEY to your key id/fingerprint before running." >&2
+    exit 1
+fi
 
 if [ -e "$LOCKFILE" ]; then
     exit 1
@@ -17,39 +23,82 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cd $REPO_DIR
+cd "$REPO_DIR"
 git fetch --all
 git checkout -f origin/master
 
-CURRENT_HASH=$(git rev-parse --short=12  HEAD)
-
-LAST_HASH=$(cat $HASH_FILE)
+CURRENT_HASH=$(git rev-parse --short=12 HEAD)
+LAST_HASH=$(cat "$HASH_FILE")
 
 HOSTS_ALL="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin"
 
 export SDK_PATH="$MAIN_DIR/SDKs"
 
 if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
-    echo "" > $BUILDS_DIR/build.log.txt
-    echo $CURRENT_HASH > $HASH_FILE
+    echo "" > "$BUILDS_DIR/build.log.txt"
+    echo "$CURRENT_HASH" > "$HASH_FILE"
 
     echo "Building: $CURRENT_HASH"
-    pushd $REPO_DIR
+    pushd "$REPO_DIR" >/dev/null
 
     for HOST in $HOSTS_ALL; do
         echo "Processing: $HOST"
         HOSTS="$HOST" ./contrib/guix/guix-clean
         HOSTS="$HOST" ./contrib/guix/guix-build
+
         FILES="$(ls guix-build-$CURRENT_HASH/output/$HOST/*.{zip,tar.gz})"
         for FILE in $FILES; do
-            BASENAME="$(basename $FILE)"
+            BASENAME="$(basename "$FILE")"
             DESTFILE="$BUILDS_DIR/$BASENAME"
-            cp $FILE $DESTFILE
-            rm $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}
-            ln -s $DESTFILE $BUILDS_DIR/${BASENAME/$CURRENT_HASH/latest}
-            find $BUILDS_DIR -mtime +2 -type f -delete
+
+            cp "$FILE" "$DESTFILE"
+
+            # Update "latest" symlink
+            LATEST_NAME="${BASENAME/$CURRENT_HASH/latest}"
+            rm -f "$BUILDS_DIR/$LATEST_NAME"
+            ln -s "$DESTFILE" "$BUILDS_DIR/$LATEST_NAME"
+
+            # Cleanup old files
+            find "$BUILDS_DIR" -mtime +2 -type f -delete
         done
+
         HOSTS="$HOST" ./contrib/guix/guix-clean
     done
-    popd
+
+    # ─── Create combined SHA256 files + signatures ────────────────────────────
+    (
+        cd "$BUILDS_DIR" || exit 1
+
+        # Avoid literal globs when there are no matches
+        shopt -s nullglob
+
+        # 1) All artifacts for this specific commit hash
+        current_files=( *"$CURRENT_HASH"*.tar.gz *"$CURRENT_HASH"*.zip )
+        if ((${#current_files[@]})); then
+            SHA_FILE="SHA256SUMS-$CURRENT_HASH"
+            sha256sum "${current_files[@]}" > "$SHA_FILE"
+            echo "Wrote SHA256 sums to $BUILDS_DIR/$SHA_FILE"
+
+            # Sign SHA256SUMS-$CURRENT_HASH
+            gpg --batch --yes --local-user "$GPG_KEY" \
+                --armor --detach-sign "$SHA_FILE"
+            echo "Signed $SHA_FILE -> $SHA_FILE.asc"
+        fi
+
+        # 2) All artifacts named with 'latest'
+        latest_files( *latest*.tar.gz *latest*.zip )
+        latest_files=( *latest*.tar.gz *latest*.zip )
+        if ((${#latest_files[@]})); then
+            LATEST_SHA_FILE="SHA256SUMS-latest"
+            sha256sum "${latest_files[@]}" > "$LATEST_SHA_FILE"
+            echo "Wrote SHA256 sums to $BUILDS_DIR/$LATEST_SHA_FILE"
+
+            # Sign SHA256SUMS-latest
+            gpg --batch --yes --local-user "$GPG_KEY" \
+                --armor --detach-sign "$LATEST_SHA_FILE"
+            echo "Signed $LATEST_SHA_FILE -> $LATEST_SHA_FILE.asc"
+        fi
+    )
+
+    popd >/dev/null
 fi
