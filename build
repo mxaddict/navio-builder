@@ -27,13 +27,19 @@ cd "$REPO_DIR"
 git fetch --all
 git checkout -f origin/master
 
-# ─── Extract version from configure.ac ────────────────────────────────────────
-VERSION_MAJOR=$(grep '_CLIENT_VERSION_MAJOR' configure.ac | awk -F'[(), ]+' '{print $3}')
-VERSION_MINOR=$(grep '_CLIENT_VERSION_MINOR' configure.ac | awk -F'[(), ]+' '{print $3}')
-VERSION_BUILD=$(grep '_CLIENT_VERSION_BUILD' configure.ac | awk -F'[(), ]+' '{print $3}')
-VERSION_RC=$(grep '_CLIENT_VERSION_RC' configure.ac | awk -F'[(), ]+' '{print $3}')
-IS_RELEASE=$(grep '_CLIENT_VERSION_IS_RELEASE' configure.ac | awk -F'[(), ]+' '{print $3}')
+# ─── Extract version from configure.ac (only from define(...) lines) ─────────
+VERSION_MAJOR=$(sed -n 's/^define(_CLIENT_VERSION_MAJOR, *\([0-9]\+\)).*/\1/p' configure.ac)
+VERSION_MINOR=$(sed -n 's/^define(_CLIENT_VERSION_MINOR, *\([0-9]\+\)).*/\1/p' configure.ac)
+VERSION_BUILD=$(sed -n 's/^define(_CLIENT_VERSION_BUILD, *\([0-9]\+\)).*/\1/p' configure.ac)
+VERSION_RC=$(sed -n 's/^define(_CLIENT_VERSION_RC, *\([0-9]\+\)).*/\1/p' configure.ac)
+IS_RELEASE=$(sed -n 's/^define(_CLIENT_VERSION_IS_RELEASE, *\([^)]\+\)).*/\1/p' configure.ac)
 
+if [ -z "$VERSION_MAJOR" ] || [ -z "$VERSION_MINOR" ] || [ -z "$VERSION_BUILD" ] || [ -z "$VERSION_RC" ]; then
+    echo "ERROR: Could not parse version from configure.ac" >&2
+    exit 1
+fi
+
+# Compose version string, e.g. 1.0.0-rc0 or 1.0.0
 VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}-rc${VERSION_RC}"
 if [ "$IS_RELEASE" = "true" ]; then
     VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}"
@@ -42,14 +48,14 @@ fi
 echo "Using version: $VERSION"
 
 CURRENT_HASH=$(git rev-parse --short=12 HEAD)
-LAST_HASH=$(cat "$HASH_FILE")
+LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
 
 HOSTS_ALL="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu x86_64-w64-mingw32 x86_64-apple-darwin arm64-apple-darwin"
 
 export SDK_PATH="$MAIN_DIR/SDKs"
 
 if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
-    echo "" > "$BUILDS_DIR/build.log.txt"
+    : > "$BUILDS_DIR/build.log.txt"
     echo "$CURRENT_HASH" > "$HASH_FILE"
 
     echo "Building commit: $CURRENT_HASH (version $VERSION)"
@@ -66,7 +72,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         for FILE in $FILES; do
             ORIG_BASENAME="$(basename "$FILE")"
 
-            # Replace commit hash in filename with version (e.g. navio-<hash>-... -> navio-<version>-...)
+            # Replace commit hash in filename with version (navio-<hash>-... -> navio-<version>-...)
             BASENAME="${ORIG_BASENAME/$CURRENT_HASH/$VERSION}"
 
             DESTFILE="$BUILDS_DIR/$BASENAME"
@@ -90,7 +96,6 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
     (
         cd "$BUILDS_DIR" || exit 1
 
-        # Avoid literal globs when there are no matches
         shopt -s nullglob
 
         # 1) All artifacts for this specific VERSION
@@ -100,7 +105,6 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
             sha256sum "${current_files[@]}" > "$SHA_FILE"
             echo "Wrote SHA256 sums to $BUILDS_DIR/$SHA_FILE"
 
-            # Sign SHA256SUMS-$VERSION
             gpg --batch --yes --local-user "$GPG_KEY" \
                 --output "$SHA_FILE.sig" \
                 --detach-sign "$SHA_FILE"
@@ -114,7 +118,6 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
             sha256sum "${latest_files[@]}" > "$LATEST_SHA_FILE"
             echo "Wrote SHA256 sums to $BUILDS_DIR/$LATEST_SHA_FILE"
 
-            # Sign SHA256SUMS-latest
             gpg --batch --yes --local-user "$GPG_KEY" \
                 --output "$LATEST_SHA_FILE.sig" \
                 --detach-sign "$LATEST_SHA_FILE"
