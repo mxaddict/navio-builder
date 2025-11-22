@@ -52,7 +52,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
     echo "" > "$BUILDS_DIR/build.log.txt"
     echo "$CURRENT_HASH" > "$HASH_FILE"
 
-    echo "Building: $CURRENT_HASH (version $VERSION)"
+    echo "Building commit: $CURRENT_HASH (version $VERSION)"
     pushd "$REPO_DIR" >/dev/null
 
     for HOST in $HOSTS_ALL; do
@@ -60,15 +60,22 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         HOSTS="$HOST" ./contrib/guix/guix-clean
         HOSTS="$HOST" ./contrib/guix/guix-build
 
-        FILES="$(ls guix-build-$CURRENT_HASH/output/$HOST/*.{zip,tar.gz})"
+        # Files still live in the commit-hash-based guix output dir
+        FILES=$(ls guix-build-"$CURRENT_HASH"/output/"$HOST"/*.{zip,tar.gz} 2>/dev/null || true)
+
         for FILE in $FILES; do
-            BASENAME="$(basename "$FILE")"
+            ORIG_BASENAME="$(basename "$FILE")"
+
+            # Replace commit hash in filename with version (e.g. navio-<hash>-... -> navio-<version>-...)
+            BASENAME="${ORIG_BASENAME/$CURRENT_HASH/$VERSION}"
+
             DESTFILE="$BUILDS_DIR/$BASENAME"
 
+            echo "Copying $ORIG_BASENAME -> $BASENAME"
             cp "$FILE" "$DESTFILE"
 
-            # Update "latest" symlink
-            LATEST_NAME="${BASENAME/$CURRENT_HASH/latest}"
+            # Update "latest" symlink: navio-<version>-host.tar.gz -> navio-latest-host.tar.gz
+            LATEST_NAME="${BASENAME/$VERSION/latest}"
             rm -f "$BUILDS_DIR/$LATEST_NAME"
             ln -s "$DESTFILE" "$BUILDS_DIR/$LATEST_NAME"
 
