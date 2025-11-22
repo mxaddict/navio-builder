@@ -27,6 +27,20 @@ cd "$REPO_DIR"
 git fetch --all
 git checkout -f origin/master
 
+# ─── Extract version from configure.ac ────────────────────────────────────────
+VERSION_MAJOR=$(grep '_CLIENT_VERSION_MAJOR' configure.ac | awk -F'[(), ]+' '{print $3}')
+VERSION_MINOR=$(grep '_CLIENT_VERSION_MINOR' configure.ac | awk -F'[(), ]+' '{print $3}')
+VERSION_BUILD=$(grep '_CLIENT_VERSION_BUILD' configure.ac | awk -F'[(), ]+' '{print $3}')
+VERSION_RC=$(grep '_CLIENT_VERSION_RC' configure.ac | awk -F'[(), ]+' '{print $3}')
+IS_RELEASE=$(grep '_CLIENT_VERSION_IS_RELEASE' configure.ac | awk -F'[(), ]+' '{print $3}')
+
+VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}-rc${VERSION_RC}"
+if [ "$IS_RELEASE" = "true" ]; then
+    VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}"
+fi
+
+echo "Using version: $VERSION"
+
 CURRENT_HASH=$(git rev-parse --short=12 HEAD)
 LAST_HASH=$(cat "$HASH_FILE")
 
@@ -38,7 +52,7 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
     echo "" > "$BUILDS_DIR/build.log.txt"
     echo "$CURRENT_HASH" > "$HASH_FILE"
 
-    echo "Building: $CURRENT_HASH"
+    echo "Building: $CURRENT_HASH (version $VERSION)"
     pushd "$REPO_DIR" >/dev/null
 
     for HOST in $HOSTS_ALL; do
@@ -72,14 +86,14 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         # Avoid literal globs when there are no matches
         shopt -s nullglob
 
-        # 1) All artifacts for this specific commit hash
-        current_files=( *"$CURRENT_HASH"*.tar.gz *"$CURRENT_HASH"*.zip )
+        # 1) All artifacts for this specific VERSION
+        current_files=( *"$VERSION"*.tar.gz *"$VERSION"*.zip )
         if ((${#current_files[@]})); then
-            SHA_FILE="SHA256SUMS-$CURRENT_HASH.asc"
+            SHA_FILE="SHA256SUMS-$VERSION.asc"
             sha256sum "${current_files[@]}" > "$SHA_FILE"
             echo "Wrote SHA256 sums to $BUILDS_DIR/$SHA_FILE"
 
-            # Sign SHA256SUMS-$CURRENT_HASH
+            # Sign SHA256SUMS-$VERSION
             gpg --batch --yes --local-user "$GPG_KEY" \
                 --output "$SHA_FILE.sig" \
                 --detach-sign "$SHA_FILE"
