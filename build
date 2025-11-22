@@ -75,27 +75,29 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
         # 1) All artifacts for this specific commit hash
         current_files=( *"$CURRENT_HASH"*.tar.gz *"$CURRENT_HASH"*.zip )
         if ((${#current_files[@]})); then
-            SHA_FILE="SHA256SUMS-$CURRENT_HASH"
+            SHA_FILE="SHA256SUMS-$CURRENT_HASH.asc"
             sha256sum "${current_files[@]}" > "$SHA_FILE"
             echo "Wrote SHA256 sums to $BUILDS_DIR/$SHA_FILE"
 
             # Sign SHA256SUMS-$CURRENT_HASH
             gpg --batch --yes --local-user "$GPG_KEY" \
-                --armor --detach-sign "$SHA_FILE"
-            echo "Signed $SHA_FILE -> $SHA_FILE.asc"
+                --output "$SHA_FILE.sig" \
+                --detach-sign "$SHA_FILE"
+            echo "Signed $SHA_FILE -> $SHA_FILE.sig"
         fi
 
         # 2) All artifacts named with 'latest'
         latest_files=( *latest*.tar.gz *latest*.zip )
         if ((${#latest_files[@]})); then
-            LATEST_SHA_FILE="SHA256SUMS-latest"
+            LATEST_SHA_FILE="SHA256SUMS-latest.asc"
             sha256sum "${latest_files[@]}" > "$LATEST_SHA_FILE"
             echo "Wrote SHA256 sums to $BUILDS_DIR/$LATEST_SHA_FILE"
 
             # Sign SHA256SUMS-latest
             gpg --batch --yes --local-user "$GPG_KEY" \
-                --armor --detach-sign "$LATEST_SHA_FILE"
-            echo "Signed $LATEST_SHA_FILE -> $LATEST_SHA_FILE.asc"
+                --output "$LATEST_SHA_FILE.sig" \
+                --detach-sign "$LATEST_SHA_FILE"
+            echo "Signed $LATEST_SHA_FILE -> $LATEST_SHA_FILE.sig"
         fi
     )
 
