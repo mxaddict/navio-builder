@@ -54,9 +54,9 @@ HOSTS_ALL="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu riscv64-linux-
 
 export SDK_PATH="$MAIN_DIR/SDKs"
 
-if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
+if [ "$VERSION" != "$LAST_HASH" ]; then
     : > "$BUILDS_DIR/build.log.txt"
-    echo "$CURRENT_HASH" > "$HASH_FILE"
+    echo "$VERSION" > "$HASH_FILE"
 
     echo "Building commit: $CURRENT_HASH (version $VERSION)"
     pushd "$REPO_DIR" >/dev/null
@@ -71,20 +71,35 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
 
         for FILE in $FILES; do
             ORIG_BASENAME="$(basename "$FILE")"
-
-            # Replace commit hash in filename with version (navio-<hash>-... -> navio-<version>-...)
             BASENAME="${ORIG_BASENAME/$CURRENT_HASH/$VERSION}"
-
             DESTFILE="$BUILDS_DIR/$BASENAME"
 
-            echo "Copying $ORIG_BASENAME -> $BASENAME"
-            cp "$FILE" "$DESTFILE"
+            echo "Repacking (tar.gz) $ORIG_BASENAME -> $BASENAME with inner dir navio-$VERSION"
 
-            # Update "latest" symlink: navio-<version>-host.tar.gz -> navio-latest-host.tar.gz
+            if [[ "$FILE" == *.tar.gz ]]; then
+                # Stream: decompress old archive, rename paths, recompress
+                gunzip -c "$FILE" \
+                | tar --transform "s/navio-$CURRENT_HASH/navio-$VERSION/" \
+                      -czf "$DESTFILE" -
+            elif [[ "$FILE" == *.zip ]]; then
+                # Handle zip separately (see below)
+                tmpdir=$(mktemp -d)
+                unzip -q "$FILE" -d "$tmpdir"
+                if [ -d "$tmpdir/navio-$CURRENT_HASH" ]; then
+                    mv "$tmpdir/navio-$CURRENT_HASH" "$tmpdir/navio-$VERSION"
+                fi
+                (cd "$tmpdir" && zip -qr "$DESTFILE" "navio-$VERSION")
+                rm -rf "$tmpdir"
+            else
+                # Fallback: just copy if some other format appears
+                cp "$FILE" "$DESTFILE"
+            fi
+
+            # Update "latest" symlink using the NEW (versioned) basename
             LATEST_NAME="${BASENAME/$VERSION/latest}"
             rm -f "$BUILDS_DIR/$LATEST_NAME"
             ln -s "$DESTFILE" "$BUILDS_DIR/$LATEST_NAME"
-
+    
             # Cleanup old files
             find "$BUILDS_DIR" -mtime +2 -type f -delete
         done
@@ -127,3 +142,4 @@ if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
 
     popd >/dev/null
 fi
+    
