@@ -74,24 +74,31 @@ if [ "$VERSION" != "$LAST_HASH" ]; then
             BASENAME="${ORIG_BASENAME/$CURRENT_HASH/$VERSION}"
             DESTFILE="$BUILDS_DIR/$BASENAME"
 
-            echo "Repacking (tar.gz) $ORIG_BASENAME -> $BASENAME with inner dir navio-$VERSION"
-
             if [[ "$FILE" == *.tar.gz ]]; then
-                # Stream: decompress old archive, rename paths, recompress
-                gunzip -c "$FILE" \
-                | tar --transform "s/navio-$CURRENT_HASH/navio-$VERSION/" \
-                      -czf "$DESTFILE" -
-            elif [[ "$FILE" == *.zip ]]; then
-                # Handle zip separately (see below)
+                echo "Repacking (tar.gz) $ORIG_BASENAME -> $BASENAME with inner dir navio-$VERSION"
                 tmpdir=$(mktemp -d)
-                unzip -q "$FILE" -d "$tmpdir"
+                tar -xzf "$FILE" -C "$tmpdir"
+
                 if [ -d "$tmpdir/navio-$CURRENT_HASH" ]; then
                     mv "$tmpdir/navio-$CURRENT_HASH" "$tmpdir/navio-$VERSION"
                 fi
-                (cd "$tmpdir" && zip -qr "$DESTFILE" "navio-$VERSION")
+
+                tar -czf "$DESTFILE" -C "$tmpdir" "navio-$VERSION"
                 rm -rf "$tmpdir"
+
+            elif [[ "$FILE" == *.zip ]]; then
+                echo "Repacking (zip) $ORIG_BASENAME -> $BASENAME with inner dir navio-$VERSION"
+                tmpdir=$(mktemp -d)
+                unzip -q "$FILE" -d "$tmpdir"
+
+                if [ -d "$tmpdir/navio-$CURRENT_HASH" ]; then
+                    mv "$tmpdir/navio-$CURRENT_HASH" "$tmpdir/navio-$VERSION"
+                fi
+
+                (cd "$tmpdir" && zip -9qr "$DESTFILE" "navio-$VERSION")
+                rm -rf "$tmpdir"
+
             else
-                # Fallback: just copy if some other format appears
                 cp "$FILE" "$DESTFILE"
             fi
 
@@ -99,9 +106,6 @@ if [ "$VERSION" != "$LAST_HASH" ]; then
             LATEST_NAME="${BASENAME/$VERSION/latest}"
             rm -f "$BUILDS_DIR/$LATEST_NAME"
             ln -s "$DESTFILE" "$BUILDS_DIR/$LATEST_NAME"
-    
-            # Cleanup old files
-            find "$BUILDS_DIR" -mtime +2 -type f -delete
         done
 
         HOSTS="$HOST" ./contrib/guix/guix-clean
