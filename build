@@ -25,7 +25,7 @@ trap cleanup EXIT
 
 cd "$REPO_DIR"
 git fetch --all
-git checkout -f origin/master
+git checkout -f origin/testnet-with-consensus-changes
 
 # ─── Extract version from configure.ac (only from define(...) lines) ─────────
 VERSION_MAJOR=$(sed -n 's/^define(_CLIENT_VERSION_MAJOR, *\([0-9]\+\)).*/\1/p' configure.ac)
